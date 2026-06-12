@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>פנטזי מונדיאל 2026 — לוח בקרה</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      direction: rtl;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1a2a1a 0%, #0d3b2e 100%);
+      border-bottom: 2px solid #2ea44f;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header-title { display: flex; align-items: center; gap: 12px; }
+    .header-title h1 { font-size: 1.4rem; color: #fff; }
+    .header-title span { font-size: 1.8rem; }
+    .header-meta { font-size: 0.8rem; color: #8b949e; text-align: left; }
+    .refresh-btn {
+      background: #238636;
+      border: none;
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .refresh-btn:hover { background: #2ea44f; }
+    .refresh-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 0 16px;
+      gap: 4px;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: #8b949e;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab:hover { color: #e6edf3; }
+    .tab.active { color: #2ea44f; border-bottom-color: #2ea44f; }
+
+    /* Main content */
+    .content { padding: 20px; max-width: 1200px; margin: 0 auto; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Error/loading states */
+    .loading, .error-box, .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #8b949e;
+    }
+    .error-box {
+      background: #2d1b1b;
+      border: 1px solid #da3633;
+      border-radius: 8px;
+      color: #ff7b72;
+      margin: 20px 0;
+    }
+    .error-box h3 { margin-bottom: 8px; }
+    .error-box code { font-size: 0.8rem; opacity: 0.8; display: block; margin-top: 8px; word-break: break-all; }
+
+    /* Section headers */
+    .section-header {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 20px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    /* Game card */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+    .game-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .game-card:hover { border-color: #58a6ff; }
+    .game-card.live { border-color: #2ea44f; }
+    .game-card.finished { opacity: 0.7; }
+
+    .game-header {
+      background: #1c2128;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .game-time { font-size: 0.8rem; color: #8b949e; }
+    .game-status-badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .badge-upcoming { background: #21262d; color: #8b949e; }
+    .badge-live { background: #1a4521; color: #3fb950; animation: pulse 1.5s infinite; }
+    .badge-finished { background: #161b22; color: #8b949e; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .game-score {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+
+    .game-teams {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 8px;
+      padding: 12px 14px;
+      align-items: center;
+    }
+    .team-col { display: flex; flex-direction: column; gap: 6px; }
+    .team-col.team-a { align-items: flex-start; }
+    .team-col.team-b { align-items: flex-end; }
+
+    .team-info { display: flex; align-items: center; gap: 8px; }
+    .team-col.team-b .team-info { flex-direction: row-reverse; }
+
+    .team-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      border-radius: 4px;
+      background: #21262d;
+    }
+    .team-name { font-size: 0.9rem; font-weight: 600; color: #f0f6fc; }
+
+    .vs-separator { color: #484f58; font-size: 0.85rem; font-weight: 700; text-align: center; }
+
+    /* User pills in game card */
+    .game-users { display: flex; flex-direction: column; gap: 4px; }
+    .no-players { font-size: 0.75rem; color: #484f58; font-style: italic; }
+
+    .user-pill {
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 0.78rem;
+    }
+    .user-pill-name {
+      color: #58a6ff;
+      font-weight: 600;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .user-pill-name .score-badge {
+      background: #21262d;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.7rem;
+      color: #8b949e;
+    }
+    .player-list { display: flex; flex-wrap: wrap; gap: 3px; }
+    .player-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #21262d;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.72rem;
+      color: #c9d1d9;
+    }
+    .player-tag.captain { border: 1px solid #d29922; color: #d29922; }
+    .player-tag.sub-captain { border: 1px solid #8b949e; }
+    .player-bonus {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #e3b341;
+      white-space: nowrap;
+    }
+    .pos-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .pos-GK { background: #1f3d2f; color: #3fb950; }
+    .pos-DEF { background: #1a2a4a; color: #58a6ff; }
+    .pos-MID { background: #3d2800; color: #e3b341; }
+    .pos-FWD { background: #3d1414; color: #ff7b72; }
+
+    /* Standings */
+    .standings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .standings-table th {
+      text-align: right;
+      padding: 8px 12px;
+      background: #1c2128;
+      color: #8b949e;
+      font-weight: 600;
+      font-size: 0.75rem;
+      border-bottom: 1px solid #30363d;
+    }
+    .standings-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #21262d;
+    }
+    .standings-table tr:hover td { background: #1c2128; }
+    .rank-badge {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .rank-1 { background: #d29922; color: #000; }
+    .rank-2 { background: #8b949e; color: #000; }
+    .rank-3 { background: #c15d3e; color: #fff; }
+    .rank-other { background: #21262d; color: #8b949e; }
+
+    /* User view */
+    .users-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .user-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .user-card-header {
+      background: #1c2128;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .user-card-name { font-weight: 700; font-size: 0.95rem; }
+    .user-card-meta { font-size: 0.75rem; color: #8b949e; }
+    .user-card-score {
+      text-align: center;
+    }
+    .user-card-score .score-val { font-size: 1.4rem; font-weight: 700; color: #2ea44f; }
+    .user-card-score .score-lbl { font-size: 0.7rem; color: #8b949e; }
+
+    .squad-list { padding: 10px 12px; }
+    .squad-player {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      border-radius: 5px;
+      margin-bottom: 2px;
+      font-size: 0.82rem;
+    }
+    .squad-player.has-game { background: #1a2a1a; }
+    .squad-player.reserve { opacity: 0.55; }
+    .squad-player .player-name { flex: 1; }
+    .squad-player .game-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #2ea44f;
+      flex-shrink: 0;
+    }
+    .squad-divider {
+      margin: 6px 0;
+      border: none;
+      border-top: 1px dashed #21262d;
+      position: relative;
+    }
+    .squad-divider::after {
+      content: 'שחקני חילוף';
+      position: absolute;
+      top: -8px;
+      right: 50%;
+      transform: translateX(50%);
+      background: #161b22;
+      padding: 0 6px;
+      font-size: 0.65rem;
+      color: #484f58;
+    }
+
+    .bonus-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: #2d1f00;
+      border: 1px solid #e3b341;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 0.7rem;
+      color: #e3b341;
+      font-weight: 600;
+      cursor: help;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 2px solid #21262d;
+      border-top-color: #2ea44f;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Cookie alert */
+    .cookie-alert {
+      background: #3d2800;
+      border: 1px solid #e3b341;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      color: #e3b341;
+    }
+    .cookie-alert h3 { margin-bottom: 6px; }
+    .cookie-alert ol { margin: 8px 0 0 20px; font-size: 0.85rem; line-height: 1.8; }
+
+    /* Cookie input modal */
+    .cookie-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .cookie-modal.hidden { display: none; }
+    .cookie-modal-content {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+    }
+    .cookie-modal h2 { margin-bottom: 12px; color: #e6edf3; }
+    .cookie-modal p { font-size: 0.85rem; color: #8b949e; margin-bottom: 16px; line-height: 1.6; }
+    .cookie-modal textarea {
+      width: 100%;
+      height: 100px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      resize: vertical;
+    }
+    .cookie-modal textarea:focus { outline: none; border-color: #2ea44f; }
+    .cookie-modal-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      justify-content: flex-end;
+    }
+    .cookie-modal .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .cookie-modal .btn-primary { background: #238636; color: #fff; }
+    .cookie-modal .btn-primary:hover { background: #2ea44f; }
+    .cookie-modal .btn-primary:disabled { opacity: 0.5; cursor: default; }
+    .cookie-modal .btn-secondary { background: #21262d; color: #8b949e; }
+    .cookie-modal .btn-secondary:hover { background: #30363d; }
+    .cookie-error { color: #ff7b72; font-size: 0.8rem; margin-top: 8px; }
+
+    /* Cookie status badge */
+    .cookie-btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cookie-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+    .cookie-btn.has-cookie { border-color: #2ea44f; color: #2ea44f; }
+    .cookie-btn.has-cookie:hover { border-color: #3fb950; color: #3fb950; }
+
+    /* Cache info */
+    .cache-info {
+      font-size: 0.75rem;
+      color: #484f58;
+      text-align: left;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">
+    <span>⚽</span>
+    <div>
+      <h1>פנטזי מונדיאל 2026</h1>
+      <div style="font-size:0.8rem;color:#8b949e;">ליגה של אפסים</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="cookie-btn" id="cookieBtn" onclick="openCookieModal()">🔑 הגדר קוקי</button>
+    <div class="header-meta" id="lastUpdated">טוען...</div>
+    <button class="refresh-btn" id="refreshBtn" onclick="loadData(true)">🔄 רענן</button>
+  </div>
+</div>
+
+<!-- Cookie Modal -->
+<div class="cookie-modal hidden" id="cookieModal">
+  <div class="cookie-modal-content">
+    <h2>🔑 הזנת קוקי Sport5</h2>
+    <p>
+      כדי לגשת לנתונים, יש להזין את הקוקי מאתר Sport5:<br>
+      1. היכנס ל-<a href="https://dreamteam.sport5.co.il" target="_blank" style="color:#58a6ff">dreamteam.sport5.co.il</a><br>
+      2. פתח DevTools (F12) → Application → Cookies<br>
+      3. העתק את הערך של <code style="background:#21262d;padding:2px 6px;border-radius:3px;">.AspNetCore.Cookies</code>
+    </p>
+    <textarea id="cookieInput" placeholder="הדבק כאן את ערך הקוקי..."></textarea>
+    <div class="cookie-error hidden" id="cookieError"></div>
+    <div class="cookie-modal-btns">
+      <button class="btn btn-secondary" onclick="closeCookieModal()">ביטול</button>
+      <button class="btn btn-secondary" id="clearCookieBtn" onclick="clearCookie()" style="color:#ff7b72;">🗑️ מחק קוקי</button>
+      <button class="btn btn-primary" id="saveCookieBtn" onclick="saveCookie()">💾 שמור וסנכרן</button>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="today" onclick="switchTab('today')">⚽ משחקי היום</div>
+  <div class="tab" data-tab="round" onclick="switchTab('round')">📅 כל הסיבוב</div>
+  <div class="tab" data-tab="users" onclick="switchTab('users')">👤 לפי שחקן</div>
+  <div class="tab" data-tab="standings" onclick="switchTab('standings')">🏆 טבלה</div>
+</div>
+
+<div class="content">
+  <div id="globalError"></div>
+
+  <div id="tabToday" class="tab-panel active">
+    <div id="todayContent"><div class="loading"><div class="spinner"></div><br><br>טוען נתונים...</div></div>
+  </div>
+  <div id="tabRound" class="tab-panel">
+    <div id="roundContent"><div class="loading">לחץ על הלשונית לטעינה</div></div>
+  </div>
+  <div id="tabUsers" class="tab-panel">
+    <div id="usersContent"><div class="loading">לחץ על הלשונית לטעינה</div></div>
+  </div>
+  <div id="tabStandings" class="tab-panel">
+    <div id="standingsContent"><div class="loading">לחץ על הלשונית לטעינה</div></div>
+  </div>
+</div>
+
+<script>
+let dashData = null;
+
+const STATUS_LABELS = { 1: { label: 'לפני המשחק', cls: 'badge-upcoming' }, 2: { label: '🔴 חי', cls: 'badge-live' }, 3: { label: 'סיום', cls: 'badge-finished' } };
+const POS_EN = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+const POS_HE = { 1: 'שוע', 2: 'בלם', 3: 'קשר', 4: 'חלוץ' };
+
+// Cookie management
+function openCookieModal() {
+  document.getElementById('cookieModal').classList.remove('hidden');
+  document.getElementById('cookieError').classList.add('hidden');
+  document.getElementById('cookieInput').value = '';
+}
+
+function closeCookieModal() {
+  document.getElementById('cookieModal').classList.add('hidden');
+}
+
+async function saveCookie() {
+  const cookie = document.getElementById('cookieInput').value.trim();
+  if (!cookie) {
+    showCookieError('יש להזין קוקי');
+    return;
+  }
+
+  const btn = document.getElementById('saveCookieBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ מאמת...';
+  document.getElementById('cookieError').classList.add('hidden');
+
+  try {
+    const resp = await fetch('/api/set-cookie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookie }),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      showCookieError(data.error || 'שגיאה בשמירת הקוקי');
+      return;
+    }
+
+    closeCookieModal();
+    updateCookieBtn(true);
+    loadData(true); // Sync data
+  } catch (e) {
+    showCookieError('שגיאת רשת: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 שמור וסנכרן';
+  }
+}
+
+async function clearCookie() {
+  try {
+    await fetch('/api/clear-cookie', { method: 'POST' });
+    closeCookieModal();
+    updateCookieBtn(false);
+    dashData = null;
+    document.getElementById('todayContent').innerHTML = '<div class="loading">יש להזין קוקי כדי לטעון נתונים</div>';
+    document.getElementById('globalError').innerHTML = '';
+  } catch (e) {
+    showCookieError('שגיאה במחיקת הקוקי');
+  }
+}
+
+function showCookieError(msg) {
+  const el = document.getElementById('cookieError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function updateCookieBtn(hasCookie) {
+  const btn = document.getElementById('cookieBtn');
+  if (hasCookie) {
+    btn.classList.add('has-cookie');
+    btn.innerHTML = '🔑 קוקי פעיל';
+  } else {
+    btn.classList.remove('has-cookie');
+    btn.innerHTML = '🔑 הגדר קוקי';
+  }
+}
+
+async function checkCookieStatus() {
+  try {
+    const resp = await fetch('/api/cookie-status');
+    const data = await resp.json();
+    updateCookieBtn(data.hasCookie);
+    return data.hasCookie;
+  } catch (e) {
+    return false;
+  }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  if (dashData) renderTab(tab);
+}
+
+function formatTime(isoStr) {
+  const d = new Date(isoStr);
+  return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
+}
+function formatDate(isoStr) {
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Jerusalem' });
+}
+
+function renderPlayerTag(p, activeBonuses) {
+  const posEn = POS_EN[p.position] || '?';
+  const posHe = POS_HE[p.position] || '?';
+  const cap = p.isCaptain ? ' class="player-tag captain"' : p.isSubCaptain ? ' class="player-tag sub-captain"' : ' class="player-tag"';
+  const capIcon = p.isCaptain ? ' (C)' : p.isSubCaptain ? ' (VC)' : '';
+
+  // Show bonus badge directly on the relevant player
+  let bonusIcon = '';
+  if (activeBonuses && activeBonuses.length) {
+    const hasTriple = activeBonuses.some(b => b.bonusName === 'TripleCaptain');
+    const hasDouble = activeBonuses.some(b => b.bonusName === 'CaptainAndSubDouble');
+    if (p.isCaptain && hasTriple)  bonusIcon = ' <span class="player-bonus" title="קפטן משולש — x3 נקודות">👑x3</span>';
+    else if (p.isCaptain && hasDouble)      bonusIcon = ' <span class="player-bonus" title="קפטן+סגן x2">⚡x2</span>';
+    else if (p.isSubCaptain && hasDouble)   bonusIcon = ' <span class="player-bonus" title="קפטן+סגן x2">⚡x2</span>';
+  }
+
+  return `<span${cap}><span class="pos-badge pos-${posEn}">${posHe}</span>${p.name}${capIcon}${bonusIcon}</span>`;
+}
+
+function renderUserPill(u) {
+  const playerTags = u.players.map(p => renderPlayerTag(p, u.activeBonuses)).join('');
+  // Show BenchScore at team level since it applies to all reserves
+  const hasBenchScore = (u.activeBonuses || []).some(b => b.bonusName === 'BenchScore');
+  const benchNote = hasBenchScore ? '<span class="bonus-tag" title="שחקני החילוף גם מקבלים נקודות">🪑 חילוף פעיל</span>' : '';
+  return `<div class="user-pill">
+    <div class="user-pill-name">
+      ${u.teamName}
+      <span class="score-lbl" style="color:#8b949e;font-size:0.72rem;">(${u.userName})</span>
+      ${benchNote}
+    </div>
+    <div class="player-list">${playerTags}</div>
+  </div>`;
+}
+
+function renderGameCard(game) {
+  const status = STATUS_LABELS[game.gameStatus] || STATUS_LABELS[1];
+  const score = game.resultData ? `${game.resultData.teamAScore ?? '-'} : ${game.resultData.teamBScore ?? '-'}` : null;
+  const cardCls = game.gameStatus === 2 ? 'game-card live' : game.gameStatus === 3 ? 'game-card finished' : 'game-card';
+
+  const hasAnyUser = game.teamAUsers.length > 0 || game.teamBUsers.length > 0;
+
+  const renderTeamUsers = (users) => {
+    if (!users.length) return `<div class="no-players">אין שחקנים</div>`;
+    return users.map(u => renderUserPill(u)).join('');
+  };
+
+  return `<div class="${cardCls}">
+    <div class="game-header">
+      <div class="game-time">${formatDate(game.gameStart)} · ${formatTime(game.gameStart)}</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${score ? `<span class="game-score">${score}</span>` : ''}
+        <span class="game-status-badge ${status.cls}">${status.label}</span>
+      </div>
+    </div>
+    <div class="game-teams">
+      <div class="team-col team-a">
+        <div class="team-info">
+          <img class="team-logo" src="${game.teamALogo}" alt="${game.teamAName}" onerror="this.style.display='none'">
+          <span class="team-name">${game.teamAName}</span>
+        </div>
+        <div class="game-users">${renderTeamUsers(game.teamAUsers)}</div>
+      </div>
+      <div class="vs-separator">VS</div>
+      <div class="team-col team-b">
+        <div class="team-info">
+          <span class="team-name">${game.teamBName}</span>
+          <img class="team-logo" src="${game.teamBLogo}" alt="${game.teamBName}" onerror="this.style.display='none'">
+        </div>
+        <div class="game-users">${renderTeamUsers(game.teamBUsers)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderGamesSection(games, emptyMsg) {
+  if (!games || !games.length) {
+    return `<div class="empty-state">${emptyMsg}</div>`;
+  }
+
+  // Group by date
+  const byDate = {};
+  for (const g of games) {
+    const dateKey = g.gameStart.slice(0, 10);
+    if (!byDate[dateKey]) byDate[dateKey] = [];
+    byDate[dateKey].push(g);
+  }
+
+  let html = '';
+  for (const [dateKey, dateGames] of Object.entries(byDate)) {
+    html += `<div class="section-header">${formatDate(dateGames[0].gameStart)}</div>
+      <div class="games-grid">${dateGames.map(renderGameCard).join('')}</div>`;
+  }
+  return html;
+}
+
+function renderTab(tab) {
+  if (!dashData) return;
+  if (tab === 'today') {
+    document.getElementById('todayContent').innerHTML = renderGamesSection(
+      dashData.todayGames,
+      `אין משחקים היום (${dashData.today})<br><small>בדוק את לשונית "כל הסיבוב" לשאר המשחקים</small>`
+    );
+  } else if (tab === 'round') {
+    document.getElementById('roundContent').innerHTML = renderGamesSection(
+      dashData.allRoundGames,
+      'אין משחקים בסיבוב הנוכחי'
+    );
+  } else if (tab === 'users') {
+    renderUsersTab();
+  } else if (tab === 'standings') {
+    renderStandingsTab();
+  }
+}
+
+function renderUsersTab() {
+  // Find which teamIds have a game today
+  const todayTeamIds = new Set();
+  for (const g of dashData.todayGames) {
+    todayTeamIds.add(g.teamAId);
+    todayTeamIds.add(g.teamBId);
+  }
+  // Also for all round games
+  const roundTeamIds = new Set();
+  for (const g of dashData.allRoundGames) {
+    roundTeamIds.add(g.teamAId);
+    roundTeamIds.add(g.teamBId);
+  }
+
+  const cards = dashData.users.map(user => {
+    const starters = user.players.filter(p => !p.isReserve);
+    const reserves = user.players.filter(p => p.isReserve);
+    const activeBonuses = user.activeBonuses || [];
+    const hasTriple = activeBonuses.some(b => b.bonusName === 'TripleCaptain');
+    const hasDouble = activeBonuses.some(b => b.bonusName === 'CaptainAndSubDouble');
+    const hasBench = activeBonuses.some(b => b.bonusName === 'BenchScore');
+
+    const renderSquadPlayer = (p) => {
+      const hasGameToday = todayTeamIds.has(p.teamId);
+      const posEn = POS_EN[p.position] || '?';
+      const posHe = POS_HE[p.position] || '?';
+      const cls = `squad-player${hasGameToday ? ' has-game' : ''}${p.isReserve ? ' reserve' : ''}`;
+      const dot = hasGameToday ? '<span class="game-dot" title="משחק היום"></span>' : '';
+
+      let capLabel = '';
+      let bonusIcon = '';
+      if (p.isCaptain) {
+        capLabel = ' (C)';
+        if (hasTriple) bonusIcon = ' <span class="player-bonus" title="קפטן משולש x3">👑x3</span>';
+        else if (hasDouble) bonusIcon = ' <span class="player-bonus" title="קפטן+סגן x2">⚡x2</span>';
+      } else if (p.isSubCaptain) {
+        capLabel = ' (VC)';
+        if (hasDouble) bonusIcon = ' <span class="player-bonus" title="קפטן+סגן x2">⚡x2</span>';
+      }
+      // BenchScore: mark reserve players with bench icon
+      const benchIcon = (p.isReserve && hasBench) ? ' <span class="player-bonus" title="נקודות חילוף פעיל">🪑</span>' : '';
+
+      return `<div class="${cls}">
+        ${dot}
+        <span class="pos-badge pos-${posEn}">${posHe}</span>
+        <span class="player-name">${p.name}${capLabel}${bonusIcon}${benchIcon}</span>
+        <span style="font-size:0.72rem;color:#8b949e;">${p.teamName}</span>
+      </div>`;
+    };
+
+    const todayCount = starters.filter(p => todayTeamIds.has(p.teamId)).length;
+
+    return `<div class="user-card">
+      <div class="user-card-header">
+        <div>
+          <div class="user-card-name">${user.teamName}</div>
+          <div class="user-card-meta">${user.userName} · מקום ${user.position?.toLocaleString()}</div>
+        </div>
+        <div class="user-card-score">
+          <div class="score-val">${user.roundScore}</div>
+          <div class="score-lbl">נקודות סיבוב</div>
+          ${todayCount > 0 ? `<div style="font-size:0.7rem;color:#3fb950;margin-top:3px;">⚽ ${todayCount} שחקנים היום</div>` : ''}
+        </div>
+      </div>
+      <div class="squad-list">
+        ${starters.map(renderSquadPlayer).join('')}
+        <hr class="squad-divider">
+        ${reserves.map(renderSquadPlayer).join('')}
+      </div>
+    </div>`;
+  });
+
+  const legend = `<div style="font-size:0.78rem;color:#8b949e;margin-bottom:16px;">
+    <span style="display:inline-flex;align-items:center;gap:5px;margin-left:12px;">
+      <span class="game-dot"></span> משחק היום
+    </span>
+    <span style="opacity:0.5;margin-left:12px;">שקוף = חילוף</span>
+    <span style="margin-left:12px;">👑x3 = קפטן משולש &nbsp;·&nbsp; ⚡x2 = קפטן+סגן כפול &nbsp;·&nbsp; 🪑 = חילוף מניב</span>
+  </div>`;
+
+  document.getElementById('usersContent').innerHTML = legend + `<div class="users-grid">${cards.join('')}</div>`;
+}
+
+function renderStandingsTab() {
+  const users = [...dashData.users].sort((a, b) => (a.position || 99999) - (b.position || 99999));
+
+  const rows = users.map((u, i) => {
+    const rank = i + 1;
+    const rankCls = rank <= 3 ? `rank-${rank}` : 'rank-other';
+    return `<tr>
+      <td><span class="rank-badge ${rankCls}">${rank}</span></td>
+      <td>${u.teamName}</td>
+      <td style="color:#8b949e;">${u.userName}</td>
+      <td style="text-align:center;font-weight:700;color:#2ea44f;">${u.roundScore}</td>
+      <td style="text-align:center;">${u.totalScore}</td>
+      <td style="text-align:center;color:#8b949e;">${u.position?.toLocaleString() || '-'}</td>
+    </tr>`;
+  });
+
+  document.getElementById('standingsContent').innerHTML = `
+    <div class="section-header">טבלת הליגה</div>
+    <table class="standings-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>שם קבוצה</th>
+          <th>שם משתמש</th>
+          <th style="text-align:center;">ניקוד סיבוב</th>
+          <th style="text-align:center;">סה"כ</th>
+          <th style="text-align:center;">מיקום כללי</th>
+        </tr>
+      </thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
+}
+
+async function loadData(force = false) {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ טוען...';
+  document.getElementById('globalError').innerHTML = '';
+
+  try {
+    const url = force ? '/api/dashboard?force=1' : '/api/dashboard';
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      const isExpired = data.cookieStatus === 'expired' || resp.status === 401;
+      const isMissing = data.cookieStatus === 'missing';
+      if (isMissing) {
+        document.getElementById('globalError').innerHTML = `
+          <div class="cookie-alert">
+            <h3>🔑 יש להזין קוקי</h3>
+            <p>לחץ על כפתור "הגדר קוקי" בראש העמוד כדי להתחיל.</p>
+          </div>`;
+        updateCookieBtn(false);
+      } else if (isExpired) {
+        document.getElementById('globalError').innerHTML = `
+          <div class="cookie-alert">
+            <h3>⚠️ הקוקי פג תוקף</h3>
+            <p>לחץ על כפתור "קוקי פעיל" בראש העמוד והזן קוקי חדש.</p>
+          </div>`;
+        updateCookieBtn(false);
+      } else {
+        document.getElementById('globalError').innerHTML = `<div class="error-box"><h3>שגיאה בטעינת נתונים</h3><code>${data.error || 'Unknown error'}</code></div>`;
+      }
+      return;
+    }
+
+    dashData = data;
+
+    const updated = new Date(data.generatedAt);
+    const cacheNote = data.fromCache ? ` · מהמטמון (לפני ${data.cacheAge}ש׳)` : '';
+    document.getElementById('lastUpdated').textContent =
+      `עודכן: ${updated.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' })}${cacheNote}`;
+
+    // Render active tab
+    const activeTab = document.querySelector('.tab.active')?.dataset?.tab || 'today';
+    renderTab(activeTab);
+
+  } catch (e) {
+    document.getElementById('globalError').innerHTML = `<div class="error-box"><h3>שגיאת רשת</h3><code>${e.message}</code></div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 רענן';
+  }
+}
+
+// Auto-refresh every 5 minutes
+setInterval(() => loadData(false), 5 * 60 * 1000);
+
+// Initial load - check cookie status first
+(async () => {
+  const hasCookie = await checkCookieStatus();
+  if (hasCookie) {
+    loadData();
+  } else {
+    document.getElementById('todayContent').innerHTML = `
+      <div class="empty-state">
+        <h3>🔑 יש להזין קוקי</h3>
+        <p style="margin-top:8px;">לחץ על כפתור "הגדר קוקי" בראש העמוד</p>
+      </div>`;
+    document.getElementById('lastUpdated').textContent = 'לא מחובר';
+  }
+})();
+</script>
+</body>
+</html>
