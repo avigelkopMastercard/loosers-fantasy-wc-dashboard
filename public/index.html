@@ -569,6 +569,21 @@ function getStoredLeague() {
   try { return JSON.parse(localStorage.getItem(LS_LEAGUE)); } catch { return null; }
 }
 
+// Parse JSON safely. If the response isn't JSON (e.g. Netlify 404 HTML page when
+// functions/redirects aren't deployed), return a friendly error object instead of
+// throwing the cryptic "Unexpected end of JSON input".
+async function safeJson(resp) {
+  const text = await resp.text();
+  if (!text) {
+    return { error: `שרת החזיר תגובה ריקה (HTTP ${resp.status}). ייתכן שה־Netlify Functions לא נפרסו.` };
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: `שרת החזיר תגובה לא־JSON (HTTP ${resp.status}). ייתכן שה־/api routes לא ממופים ל־Netlify Functions.` };
+  }
+}
+
 // Cookie management
 function openCookieModal() {
   document.getElementById('cookieModal').classList.remove('hidden');
@@ -598,7 +613,7 @@ async function saveCookie() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cookie }),
     });
-    const data = await resp.json();
+    const data = await safeJson(resp);
 
     if (!resp.ok) {
       showCookieError(data.error || 'שגיאה בשמירת הקוקי');
@@ -676,7 +691,7 @@ async function loadLeagues() {
     const resp = await fetch('/api/leagues', {
       headers: { 'X-Cookie-Value': cookie },
     });
-    const data = await resp.json();
+    const data = await safeJson(resp);
 
     if (!resp.ok) {
       listEl.innerHTML = `<div class="error-box">${data.error}</div>`;
@@ -984,7 +999,7 @@ async function loadData(force = false) {
     const resp = await fetch(url, {
       headers: cookie ? { 'X-Cookie-Value': cookie } : {},
     });
-    const data = await resp.json();
+    const data = await safeJson(resp);
 
     if (!resp.ok || data.error) {
       const isExpired = data.cookieStatus === 'expired' || resp.status === 401;
