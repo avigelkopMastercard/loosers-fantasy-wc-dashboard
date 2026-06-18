@@ -429,6 +429,42 @@
     .cookie-btn.has-cookie { border-color: #2ea44f; color: #2ea44f; }
     .cookie-btn.has-cookie:hover { border-color: #3fb950; color: #3fb950; }
 
+    /* League selector */
+    .league-btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .league-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+    .league-btn.has-league { border-color: #a371f7; color: #a371f7; }
+    .league-list {
+      max-height: 300px;
+      overflow-y: auto;
+      margin: 12px 0;
+    }
+    .league-item {
+      padding: 10px 14px;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .league-item:hover { border-color: #58a6ff; background: #1c2128; }
+    .league-item.selected { border-color: #a371f7; background: #1c2128; }
+    .league-item-name { font-weight: 600; }
+    .league-item-meta { font-size: 0.75rem; color: #8b949e; }
+
     /* Cache info */
     .cache-info {
       font-size: 0.75rem;
@@ -445,11 +481,12 @@
     <span>⚽</span>
     <div>
       <h1>פנטזי מונדיאל 2026</h1>
-      <div style="font-size:0.8rem;color:#8b949e;">ליגה של אפסים</div>
+      <div id="leagueName" style="font-size:0.8rem;color:#8b949e;">בחר ליגה</div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
     <button class="cookie-btn" id="cookieBtn" onclick="openCookieModal()">🔑 הגדר קוקי</button>
+    <button class="league-btn" id="leagueBtn" onclick="openLeagueModal()" disabled>🏆 בחר ליגה</button>
     <div class="header-meta" id="lastUpdated">טוען...</div>
     <button class="refresh-btn" id="refreshBtn" onclick="loadData(true)">🔄 רענן</button>
   </div>
@@ -471,6 +508,21 @@
       <button class="btn btn-secondary" onclick="closeCookieModal()">ביטול</button>
       <button class="btn btn-secondary" id="clearCookieBtn" onclick="clearCookie()" style="color:#ff7b72;">🗑️ מחק קוקי</button>
       <button class="btn btn-primary" id="saveCookieBtn" onclick="saveCookie()">💾 שמור וסנכרן</button>
+    </div>
+  </div>
+</div>
+
+<!-- League Modal -->
+<div class="cookie-modal hidden" id="leagueModal">
+  <div class="cookie-modal-content">
+    <h2>🏆 בחירת ליגה</h2>
+    <p>בחר את הליגה שברצונך לעקוב אחריה:</p>
+    <div class="league-list" id="leagueList">
+      <div class="loading"><div class="spinner"></div> טוען ליגות...</div>
+    </div>
+    <div class="cookie-error hidden" id="leagueError"></div>
+    <div class="cookie-modal-btns">
+      <button class="btn btn-secondary" onclick="closeLeagueModal()">ביטול</button>
     </div>
   </div>
 </div>
@@ -506,11 +558,22 @@ const STATUS_LABELS = { 1: { label: 'לפני המשחק', cls: 'badge-upcoming'
 const POS_EN = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 const POS_HE = { 1: 'שוע', 2: 'בלם', 3: 'קשר', 4: 'חלוץ' };
 
+const LS_COOKIE = 'sport5_cookie';
+const LS_LEAGUE = 'sport5_league';
+
+function getStoredCookie() {
+  return localStorage.getItem(LS_COOKIE);
+}
+
+function getStoredLeague() {
+  try { return JSON.parse(localStorage.getItem(LS_LEAGUE)); } catch { return null; }
+}
+
 // Cookie management
 function openCookieModal() {
   document.getElementById('cookieModal').classList.remove('hidden');
   document.getElementById('cookieError').classList.add('hidden');
-  document.getElementById('cookieInput').value = '';
+  document.getElementById('cookieInput').value = getStoredCookie() || '';
 }
 
 function closeCookieModal() {
@@ -530,7 +593,7 @@ async function saveCookie() {
   document.getElementById('cookieError').classList.add('hidden');
 
   try {
-    const resp = await fetch('/api/set-cookie', {
+    const resp = await fetch('/api/validate-cookie', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cookie }),
@@ -542,9 +605,10 @@ async function saveCookie() {
       return;
     }
 
+    localStorage.setItem(LS_COOKIE, cookie);
     closeCookieModal();
     updateCookieBtn(true);
-    loadData(true); // Sync data
+    openLeagueModal();
   } catch (e) {
     showCookieError('שגיאת רשת: ' + e.message);
   } finally {
@@ -553,17 +617,16 @@ async function saveCookie() {
   }
 }
 
-async function clearCookie() {
-  try {
-    await fetch('/api/clear-cookie', { method: 'POST' });
-    closeCookieModal();
-    updateCookieBtn(false);
-    dashData = null;
-    document.getElementById('todayContent').innerHTML = '<div class="loading">יש להזין קוקי כדי לטעון נתונים</div>';
-    document.getElementById('globalError').innerHTML = '';
-  } catch (e) {
-    showCookieError('שגיאה במחיקת הקוקי');
-  }
+function clearCookie() {
+  localStorage.removeItem(LS_COOKIE);
+  localStorage.removeItem(LS_LEAGUE);
+  closeCookieModal();
+  updateCookieBtn(false);
+  currentLeague = null;
+  updateLeagueUI();
+  dashData = null;
+  document.getElementById('todayContent').innerHTML = '<div class="loading">יש להזין קוקי כדי לטעון נתונים</div>';
+  document.getElementById('globalError').innerHTML = '';
 }
 
 function showCookieError(msg) {
@@ -574,23 +637,90 @@ function showCookieError(msg) {
 
 function updateCookieBtn(hasCookie) {
   const btn = document.getElementById('cookieBtn');
+  const leagueBtn = document.getElementById('leagueBtn');
   if (hasCookie) {
     btn.classList.add('has-cookie');
     btn.innerHTML = '🔑 קוקי פעיל';
+    leagueBtn.disabled = false;
   } else {
     btn.classList.remove('has-cookie');
     btn.innerHTML = '🔑 הגדר קוקי';
+    leagueBtn.disabled = true;
   }
 }
 
-async function checkCookieStatus() {
+// League management
+let currentLeague = null;
+
+function openLeagueModal() {
+  document.getElementById('leagueModal').classList.remove('hidden');
+  document.getElementById('leagueError').classList.add('hidden');
+  loadLeagues();
+}
+
+function closeLeagueModal() {
+  document.getElementById('leagueModal').classList.add('hidden');
+}
+
+async function loadLeagues() {
+  const listEl = document.getElementById('leagueList');
+  listEl.innerHTML = '<div class="loading"><div class="spinner"></div> טוען ליגות...</div>';
+
+  const cookie = getStoredCookie();
+  if (!cookie) {
+    listEl.innerHTML = '<div class="error-box">יש להזין קוקי תחילה</div>';
+    return;
+  }
+
   try {
-    const resp = await fetch('/api/cookie-status');
+    const resp = await fetch('/api/leagues', {
+      headers: { 'X-Cookie-Value': cookie },
+    });
     const data = await resp.json();
-    updateCookieBtn(data.hasCookie);
-    return data.hasCookie;
+
+    if (!resp.ok) {
+      listEl.innerHTML = `<div class="error-box">${data.error}</div>`;
+      return;
+    }
+
+    if (!data.leagues || data.leagues.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">לא נמצאו ליגות</div>';
+      return;
+    }
+
+    listEl.innerHTML = data.leagues.map(l => `
+      <div class="league-item ${currentLeague?.id === l.id ? 'selected' : ''}" onclick="selectLeague(${l.id}, '${l.name.replace(/'/g, "\\'")}')">
+        <div>
+          <div class="league-item-name">${l.name}</div>
+          <div class="league-item-meta">${l.memberCount} משתתפים</div>
+        </div>
+        ${currentLeague?.id === l.id ? '<span style="color:#a371f7;">✓</span>' : ''}
+      </div>
+    `).join('');
   } catch (e) {
-    return false;
+    listEl.innerHTML = `<div class="error-box">שגיאה בטעינת ליגות: ${e.message}</div>`;
+  }
+}
+
+function selectLeague(id, name) {
+  currentLeague = { id, name };
+  localStorage.setItem(LS_LEAGUE, JSON.stringify(currentLeague));
+  updateLeagueUI();
+  closeLeagueModal();
+  loadData(true);
+}
+
+function updateLeagueUI() {
+  const btn = document.getElementById('leagueBtn');
+  const nameEl = document.getElementById('leagueName');
+  if (currentLeague) {
+    btn.classList.add('has-league');
+    btn.textContent = `🏆 ${currentLeague.name}`;
+    nameEl.textContent = currentLeague.name;
+  } else {
+    btn.classList.remove('has-league');
+    btn.textContent = '🏆 בחר ליגה';
+    nameEl.textContent = 'בחר ליגה';
   }
 }
 
@@ -841,19 +971,25 @@ function renderStandingsTab() {
 }
 
 async function loadData(force = false) {
+  const cookie = getStoredCookie();
+  const league = currentLeague || getStoredLeague();
+
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
   btn.textContent = '⏳ טוען...';
   document.getElementById('globalError').innerHTML = '';
 
   try {
-    const url = force ? '/api/dashboard?force=1' : '/api/dashboard';
-    const resp = await fetch(url);
+    const url = `/api/dashboard?leagueId=${league?.id || ''}${force ? '&force=1' : ''}`;
+    const resp = await fetch(url, {
+      headers: cookie ? { 'X-Cookie-Value': cookie } : {},
+    });
     const data = await resp.json();
 
     if (!resp.ok || data.error) {
       const isExpired = data.cookieStatus === 'expired' || resp.status === 401;
       const isMissing = data.cookieStatus === 'missing';
+      const isLeagueMissing = data.leagueStatus === 'missing';
       if (isMissing) {
         document.getElementById('globalError').innerHTML = `
           <div class="cookie-alert">
@@ -861,6 +997,12 @@ async function loadData(force = false) {
             <p>לחץ על כפתור "הגדר קוקי" בראש העמוד כדי להתחיל.</p>
           </div>`;
         updateCookieBtn(false);
+      } else if (isLeagueMissing) {
+        document.getElementById('globalError').innerHTML = `
+          <div class="cookie-alert">
+            <h3>🏆 יש לבחור ליגה</h3>
+            <p>לחץ על כפתור "בחר ליגה" בראש העמוד.</p>
+          </div>`;
       } else if (isExpired) {
         document.getElementById('globalError').innerHTML = `
           <div class="cookie-alert">
@@ -896,11 +1038,27 @@ async function loadData(force = false) {
 // Auto-refresh every 5 minutes
 setInterval(() => loadData(false), 5 * 60 * 1000);
 
-// Initial load - check cookie status first
-(async () => {
-  const hasCookie = await checkCookieStatus();
-  if (hasCookie) {
+// Initial load - check localStorage
+(() => {
+  const cookie = getStoredCookie();
+  const league = getStoredLeague();
+
+  updateCookieBtn(!!cookie);
+
+  if (league) {
+    currentLeague = league;
+    updateLeagueUI();
+  }
+
+  if (cookie && league) {
     loadData();
+  } else if (cookie && !league) {
+    document.getElementById('todayContent').innerHTML = `
+      <div class="empty-state">
+        <h3>🏆 יש לבחור ליגה</h3>
+        <p style="margin-top:8px;">לחץ על כפתור "בחר ליגה" בראש העמוד</p>
+      </div>`;
+    document.getElementById('lastUpdated').textContent = 'לא נבחרה ליגה';
   } else {
     document.getElementById('todayContent').innerHTML = `
       <div class="empty-state">
