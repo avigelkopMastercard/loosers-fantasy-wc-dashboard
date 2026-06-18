@@ -2,9 +2,9 @@
   "name": "fantasy-wc-dashboard",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.mjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.mjs"
   },
   "keywords": [],
   "author": "",

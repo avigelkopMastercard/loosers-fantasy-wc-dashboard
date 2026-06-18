@@ -1,8 +1,8 @@
-const axios = require('axios');
-const https = require('https');
+import axios from 'axios';
+import https from 'https';
 
 const BASE_URL = 'https://dreamteam.sport5.co.il/api';
-const SEASON_ID = process.env.SEASON_ID || '9';
+export const SEASON_ID = process.env.SEASON_ID || '9';
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -21,7 +21,7 @@ function cookieHeader(cookie) {
   return `.AspNetCore.Cookies=${cookie}`;
 }
 
-async function apiGet(cookie, apiPath, params = {}) {
+export async function apiGet(cookie, apiPath, params = {}) {
   const url = `${BASE_URL}/${apiPath}`;
   const resp = await axios.get(url, {
     params,
@@ -36,7 +36,7 @@ async function apiGet(cookie, apiPath, params = {}) {
   return resp.data;
 }
 
-async function apiPost(cookie, apiPath, data = {}) {
+export async function apiPost(cookie, apiPath, data = {}) {
   const url = `${BASE_URL}/${apiPath}`;
   const params = new URLSearchParams(data);
   const resp = await axios.post(url, params.toString(), {
@@ -54,7 +54,7 @@ async function apiPost(cookie, apiPath, data = {}) {
   return resp.data;
 }
 
-async function buildDashboard(cookie, leagueId) {
+export async function buildDashboard(cookie, leagueId) {
   const roundResp = await apiGet(cookie, 'Leagues/Get', { seasonId: SEASON_ID });
   const round = roundResp.data;
 
@@ -83,6 +83,11 @@ async function buildDashboard(cookie, leagueId) {
           userId: lt.userId,
         });
         const ut = resp.data.userTeam;
+        // BUG FIX: Sport5 returns the cumulative history of all players ever
+        // owned by the team. Round-1 players that have been transferred out
+        // are still present with isRemoved=true. The official Sport5 frontend
+        // filters the same way; without this, squads show 18-20 players
+        // instead of the correct 15 in round 2+.
         const players = (ut.userTeamPlayers || [])
           .filter((p) => !p.isRemoved)
           .map((p) => ({
@@ -244,7 +249,7 @@ async function buildDashboard(cookie, leagueId) {
   };
 }
 
-function getCookieFromEvent(event) {
+export function getCookieFromEvent(event) {
   const headers = event.headers || {};
   return (
     headers['x-cookie-value'] ||
@@ -253,19 +258,10 @@ function getCookieFromEvent(event) {
   );
 }
 
-function jsonResponse(statusCode, body) {
+export function jsonResponse(statusCode, body) {
   return {
     statusCode,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   };
 }
-
-module.exports = {
-  SEASON_ID,
-  apiGet,
-  apiPost,
-  buildDashboard,
-  getCookieFromEvent,
-  jsonResponse,
-};

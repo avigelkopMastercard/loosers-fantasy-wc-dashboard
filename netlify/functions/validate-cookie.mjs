@@ -1,6 +1,6 @@
-const { apiGet, SEASON_ID, jsonResponse } = require('./_shared/sport5');
+import { apiGet, SEASON_ID, jsonResponse } from './_shared/sport5.mjs';
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { error: 'Method not allowed' });
   }

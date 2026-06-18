@@ -1,7 +1,10 @@
-require('dotenv').config();
-const express = require('express');
-const path = require('path');
-const { apiGet, buildDashboard, SEASON_ID } = require('./netlify/functions/_shared/sport5');
+import 'dotenv/config';
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { apiGet, buildDashboard, SEASON_ID } from './netlify/functions/_shared/sport5.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(express.json());

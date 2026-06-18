@@ -1,6 +1,6 @@
-const { apiGet, SEASON_ID, getCookieFromEvent, jsonResponse } = require('./_shared/sport5');
+import { apiGet, SEASON_ID, getCookieFromEvent, jsonResponse } from './_shared/sport5.mjs';
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   const cookie = getCookieFromEvent(event);
   if (!cookie) {
     return jsonResponse(401, { error: 'No cookie provided (missing X-Cookie-Value header)' });

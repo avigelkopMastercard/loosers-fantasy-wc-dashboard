@@ -1,6 +1,6 @@
-const { buildDashboard, getCookieFromEvent, jsonResponse } = require('./_shared/sport5');
+import { buildDashboard, getCookieFromEvent, jsonResponse } from './_shared/sport5.mjs';
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   const cookie = getCookieFromEvent(event);
   if (!cookie) {
     return jsonResponse(401, {
